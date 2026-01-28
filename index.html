@@ -992,7 +992,7 @@
                 maxZoom: 19
             }).addTo(map);
 
-            let markers = [];
+            window.markers = [];
 
             function getMarkerClass(type) {
                 if (!type) return 'marker-other';
@@ -1020,8 +1020,11 @@
 
             function createMarkers() {
                 // Clear existing markers
-                markers.forEach(m => map.removeLayer(m));
-                markers = [];
+                window.markers.forEach(m => map.removeLayer(m));
+                window.markers = [];
+
+                // Get current types from racksData
+                const types = [...new Set(window.racksData.filter(r => r.type).map(r => r.type))].sort();
 
                 // Filter racks
                 const selectedTypes = types.filter(t => 
@@ -1031,7 +1034,7 @@
                 const showGatedNo = document.getElementById('gatedNo').checked;
                 const minCapacity = parseInt(document.getElementById('minCapacity').value) || 0;
 
-                const filteredRacks = racks.filter(rack => {
+                const filteredRacks = window.racksData.filter(rack => {
                     if (!rack.point) return false;
                     if (rack.type && !selectedTypes.includes(rack.type)) return false;
                     if (rack.gated === "Yes" && !showGatedYes) return false;
@@ -1081,9 +1084,12 @@
                         className: 'custom-popup'
                     });
 
-                    markers.push(marker);
+                    window.markers.push(marker);
                 });
             }
+
+            // Make createMarkers globally accessible
+            window.createMarkers = createMarkers;
 
             window.updateFilters = function() {
                 // Update active states on filter options
@@ -1148,37 +1154,97 @@
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
 
-                    // Parse CSV line (handle quoted fields)
-                    const matches = lines[i].match(/("(?:[^"]|"")*"|[^,]*)(,("(?:[^"]|"")*"|[^,]*))*/g);
-                    if (!matches || matches.length < 5) continue;
-
-                    const fields = matches.map(field => {
-                        field = field.replace(/^,/, '');
-                        if (field.startsWith('"') && field.endsWith('"')) {
-                            return field.slice(1, -1).replace(/""/g, '"');
+                    // Simple CSV parsing - split by comma but handle quoted fields
+                    let fields = [];
+                    let current = '';
+                    let inQuotes = false;
+                    
+                    for (let j = 0; j < lines[i].length; j++) {
+                        const char = lines[i][j];
+                        if (char === '"') {
+                            inQuotes = !inQuotes;
+                        } else if (char === ',' && !inQuotes) {
+                            fields.push(current.trim());
+                            current = '';
+                        } else {
+                            current += char;
                         }
-                        return field;
-                    });
+                    }
+                    fields.push(current.trim()); // Push last field
 
-                    newRacks.push({
-                        id: fields[0],
-                        type: fields[1],
-                        gated: fields[2],
-                        capacity: fields[3] ? parseInt(fields[3]) : null,
-                        point: fields[4]
-                    });
+                    if (fields.length >= 5) {
+                        newRacks.push({
+                            id: fields[0],
+                            type: fields[1],
+                            gated: fields[2],
+                            capacity: fields[3] ? parseInt(fields[3]) : null,
+                            point: fields[4]
+                        });
+                    }
                 }
 
                 if (confirm(`Load ${newRacks.length} racks from CSV? This will replace all current data.`)) {
                     window.racksData = newRacks;
-                    alert('CSV loaded successfully! Switching to map view...');
+                    alert('✓ CSV loaded successfully! Refreshing map...');
+                    
+                    // Clear existing markers
+                    if (window.markers) {
+                        window.markers.forEach(m => window.mapInstance.removeLayer(m));
+                    }
+                    
+                    // Reinitialize map with new data
+                    window.createMarkers();
+                    
+                    // Update stats
+                    const totalCapacity = newRacks.reduce((sum, r) => sum + (r.capacity || 0), 0);
+                    document.getElementById('totalRacks').textContent = newRacks.length;
+                    document.getElementById('totalCapacity').textContent = totalCapacity.toLocaleString();
+                    
+                    // Rebuild type filters
+                    rebuildTypeFilters();
+                    
+                    // Switch to map view
                     switchTab('map');
-                    // Reinitialize the map with new data
-                    location.reload();
                 }
             };
             reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
         };
+
+        // Rebuild type filters after loading new CSV
+        function rebuildTypeFilters() {
+            const types = [...new Set(window.racksData.filter(r => r.type).map(r => r.type))].sort();
+            const typeFiltersEl = document.getElementById('typeFilters');
+            typeFiltersEl.innerHTML = '';
+            
+            const typeCounts = {};
+            window.racksData.forEach(r => {
+                if (r.type) {
+                    typeCounts[r.type] = (typeCounts[r.type] || 0) + 1;
+                }
+            });
+
+            types.forEach(type => {
+                const div = document.createElement('div');
+                div.className = 'filter-option active';
+                div.innerHTML = `
+                    <input type="checkbox" id="type-${type}" checked onchange="updateFilters()">
+                    <label for="type-${type}">
+                        <span>${type}</span>
+                        <span class="filter-count">${typeCounts[type]}</span>
+                    </label>
+                `;
+                typeFiltersEl.appendChild(div);
+            });
+            
+            // Update gated counts
+            const gatedYesCount = window.racksData.filter(r => r.gated === "Yes").length;
+            const gatedNoCount = window.racksData.filter(r => r.gated === "No").length;
+            document.getElementById('gatedYesCount').textContent = gatedYesCount;
+            document.getElementById('gatedNoCount').textContent = gatedNoCount;
+        }
 
         // Tab switching
         window.switchTab = function(tabName) {
