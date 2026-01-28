@@ -173,6 +173,13 @@
             display: none;
         }
 
+        .edit-section {
+            max-width: 1200px;
+            margin: 32px auto;
+            padding: 0 32px;
+            display: none;
+        }
+
         .form-container {
             background: white;
             border-radius: 16px;
@@ -267,6 +274,74 @@
             color: #666;
             margin-top: 6px;
             font-style: italic;
+        }
+
+        #editTable tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+
+        #editTable tbody tr:hover {
+            background: var(--warm-gray);
+        }
+
+        #editTable td {
+            padding: 16px;
+            font-size: 14px;
+        }
+
+        #editTable input, #editTable select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: 'Work Sans', sans-serif;
+        }
+
+        #editTable input:focus, #editTable select:focus {
+            outline: none;
+            border-color: var(--california-gold);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-save {
+            background: var(--forest);
+            color: white;
+            margin-right: 6px;
+        }
+
+        .btn-save:hover {
+            background: #234721;
+        }
+
+        .btn-delete {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #b71c1c;
+        }
+
+        .btn-edit {
+            background: var(--berkeley-blue);
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #002a52;
         }
 
         .controls-panel {
@@ -594,6 +669,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('map')">🗺️ View Map</button>
             <button class="tab" onclick="switchTab('add')">➕ Add New Entry</button>
+            <button class="tab" onclick="switchTab('edit')">✏️ Edit Entries</button>
         </div>
     </div>
 
@@ -688,7 +764,9 @@
             <hr style="margin: 40px 0; border: none; border-top: 2px solid #eee;">
 
             <h3 style="font-family: 'Lora', serif; font-size: 24px; margin-bottom: 24px; color: var(--berkeley-blue);">Add New Bike Rack</h3>
-            <form id="addRackForm">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start;">
+                <form id="addRackForm">
                 <div class="form-group">
                     <label class="form-label" for="newRackId">Rack ID</label>
                     <input type="text" id="newRackId" class="form-input" placeholder="e.g., 084" required>
@@ -723,15 +801,54 @@
 
                 <div class="form-group">
                     <label class="form-label" for="newRackLocation">Location (Latitude, Longitude)</label>
-                    <input type="text" id="newRackLocation" class="form-input" placeholder="e.g., 37.8719, -122.2585" required>
-                    <p class="help-text">Click on the map in the View Map tab to get coordinates, or enter manually</p>
+                    <input type="text" id="newRackLocation" class="form-input" placeholder="Click map or enter manually" required readonly style="background: #f9f9f9;">
+                    <p class="help-text">Click on the map to set coordinates</p>
                 </div>
 
                 <div class="form-actions">
-                    <button type="button" class="btn-cancel" onclick="switchTab('map')">Cancel</button>
+                    <button type="button" class="btn-cancel" onclick="clearAddForm()">Clear</button>
                     <button type="submit" class="btn-submit">Add Rack</button>
                 </div>
             </form>
+
+            <div>
+                <label class="form-label">Click Map to Set Location</label>
+                <div id="addMap" style="height: 500px; border-radius: 12px; overflow: hidden; border: 2px solid #ddd;"></div>
+                <p class="help-text" style="margin-top: 8px;">Click anywhere on the map to set the coordinates for the new rack</p>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="edit-section" id="editSection">
+        <div class="form-container">
+            <h2 class="form-title">Edit Existing Entries</h2>
+            
+            <div class="form-group">
+                <label class="form-label">Search Rack</label>
+                <input type="text" id="searchRack" class="form-input" placeholder="Search by Rack ID, Type, or Capacity..." onkeyup="filterEditTable()">
+            </div>
+
+            <div style="max-height: 600px; overflow-y: auto; border: 2px solid #ddd; border-radius: 12px; margin-top: 20px;">
+                <table id="editTable" style="width: 100%; border-collapse: collapse;">
+                    <thead style="position: sticky; top: 0; background: var(--berkeley-blue); color: white; z-index: 10;">
+                        <tr>
+                            <th style="padding: 16px; text-align: left; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">ID</th>
+                            <th style="padding: 16px; text-align: left; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Type</th>
+                            <th style="padding: 16px; text-align: left; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Capacity</th>
+                            <th style="padding: 16px; text-align: left; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Gated</th>
+                            <th style="padding: 16px; text-align: left; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Location</th>
+                            <th style="padding: 16px; text-align: center; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="editTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 24px;">
+                <button type="button" class="btn-submit" onclick="downloadCurrentCSV()">📥 Download Updated CSV</button>
+            </div>
         </div>
     </div>
 
@@ -1067,6 +1184,7 @@
         window.switchTab = function(tabName) {
             const mapSection = document.getElementById('mapSection');
             const addSection = document.getElementById('addSection');
+            const editSection = document.getElementById('editSection');
             const tabs = document.querySelectorAll('.tab');
 
             tabs.forEach(tab => tab.classList.remove('active'));
@@ -1074,6 +1192,7 @@
             if (tabName === 'map') {
                 mapSection.style.display = 'grid';
                 addSection.style.display = 'none';
+                editSection.style.display = 'none';
                 tabs[0].classList.add('active');
                 // Refresh map size
                 setTimeout(() => {
@@ -1084,8 +1203,151 @@
             } else if (tabName === 'add') {
                 mapSection.style.display = 'none';
                 addSection.style.display = 'block';
+                editSection.style.display = 'none';
                 tabs[1].classList.add('active');
+                // Initialize add map if not already done
+                if (!window.addMapInstance) {
+                    initAddMap();
+                } else {
+                    setTimeout(() => window.addMapInstance.invalidateSize(), 100);
+                }
+            } else if (tabName === 'edit') {
+                mapSection.style.display = 'none';
+                addSection.style.display = 'none';
+                editSection.style.display = 'block';
+                tabs[2].classList.add('active');
+                populateEditTable();
             }
+        };
+
+        // Initialize map for adding entries
+        function initAddMap() {
+            window.addMapInstance = L.map('addMap').setView([37.8719, -122.2585], 15);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(window.addMapInstance);
+
+            // Temporary marker for new location
+            let tempMarker = null;
+
+            window.addMapInstance.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                // Update the location input
+                document.getElementById('newRackLocation').value = `${lat},${lng}`;
+                
+                // Remove old temp marker
+                if (tempMarker) {
+                    window.addMapInstance.removeLayer(tempMarker);
+                }
+                
+                // Add new temp marker
+                const icon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: '<div class="bike-marker" style="background: #FDB515; border: 3px solid white; width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                
+                tempMarker = L.marker([lat, lng], {icon: icon}).addTo(window.addMapInstance);
+                tempMarker.bindPopup(`<strong>New Rack Location</strong><br>${lat.toFixed(6)}, ${lng.toFixed(6)}`).openPopup();
+            });
+        }
+
+        // Clear add form
+        window.clearAddForm = function() {
+            document.getElementById('addRackForm').reset();
+            document.getElementById('newRackLocation').value = '';
+        };
+
+        // Populate edit table
+        function populateEditTable() {
+            const tbody = document.getElementById('editTableBody');
+            tbody.innerHTML = '';
+            
+            window.racksData.forEach((rack, index) => {
+                const row = document.createElement('tr');
+                row.id = `row-${index}`;
+                row.innerHTML = `
+                    <td><strong>${rack.id}</strong></td>
+                    <td><span id="type-${index}">${rack.type || ''}</span></td>
+                    <td><span id="capacity-${index}">${rack.capacity || 'N/A'}</span></td>
+                    <td><span id="gated-${index}">${rack.gated || ''}</span></td>
+                    <td><span id="location-${index}" style="font-size: 12px; font-family: monospace;">${rack.point ? rack.point.split(',').map(c => parseFloat(c).toFixed(5)).join(', ') : 'Not set'}</span></td>
+                    <td style="text-align: center;">
+                        <button class="btn-small btn-edit" onclick="editRack(${index})">Edit</button>
+                        <button class="btn-small btn-delete" onclick="deleteRack(${index})">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Edit rack
+        window.editRack = function(index) {
+            const rack = window.racksData[index];
+            const row = document.getElementById(`row-${index}`);
+            
+            row.innerHTML = `
+                <td><strong>${rack.id}</strong></td>
+                <td>
+                    <select id="edit-type-${index}">
+                        <option value="">--</option>
+                        <option value="Ribbon" ${rack.type === 'Ribbon' ? 'selected' : ''}>Ribbon</option>
+                        <option value="Horseshoe" ${rack.type === 'Horseshoe' ? 'selected' : ''}>Horseshoe</option>
+                        <option value="Peak" ${rack.type === 'Peak' ? 'selected' : ''}>Peak</option>
+                        <option value="Circles" ${rack.type === 'Circles' ? 'selected' : ''}>Circles</option>
+                        <option value="Scooter" ${rack.type === 'Scooter' ? 'selected' : ''}>Scooter</option>
+                    </select>
+                </td>
+                <td><input type="number" id="edit-capacity-${index}" value="${rack.capacity || ''}" placeholder="N/A" min="0"></td>
+                <td>
+                    <select id="edit-gated-${index}">
+                        <option value="No" ${rack.gated === 'No' ? 'selected' : ''}>No</option>
+                        <option value="Yes" ${rack.gated === 'Yes' ? 'selected' : ''}>Yes</option>
+                    </select>
+                </td>
+                <td><input type="text" id="edit-location-${index}" value="${rack.point || ''}" placeholder="lat,lng" style="font-size: 12px;"></td>
+                <td style="text-align: center;">
+                    <button class="btn-small btn-save" onclick="saveRack(${index})">Save</button>
+                    <button class="btn-small btn-cancel" onclick="populateEditTable()">Cancel</button>
+                </td>
+            `;
+        };
+
+        // Save edited rack
+        window.saveRack = function(index) {
+            window.racksData[index].type = document.getElementById(`edit-type-${index}`).value;
+            window.racksData[index].capacity = parseInt(document.getElementById(`edit-capacity-${index}`).value) || null;
+            window.racksData[index].gated = document.getElementById(`edit-gated-${index}`).value;
+            window.racksData[index].point = document.getElementById(`edit-location-${index}`).value;
+            
+            populateEditTable();
+            alert('Rack updated! Remember to download the updated CSV.');
+        };
+
+        // Delete rack
+        window.deleteRack = function(index) {
+            const rack = window.racksData[index];
+            if (confirm(`Delete Rack ${rack.id}? This cannot be undone.`)) {
+                window.racksData.splice(index, 1);
+                populateEditTable();
+                alert('Rack deleted! Remember to download the updated CSV.');
+            }
+        };
+
+        // Filter edit table
+        window.filterEditTable = function() {
+            const search = document.getElementById('searchRack').value.toLowerCase();
+            const rows = document.querySelectorAll('#editTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+            });
         };
 
         // Handle form submission
@@ -1106,17 +1368,23 @@
                 return;
             }
 
+            // Validate location format
+            if (!newRack.point || !newRack.point.match(/^-?\d+\.?\d*,-?\d+\.?\d*$/)) {
+                alert('Error: Please click on the map to set a valid location.');
+                return;
+            }
+
             // Add to racks array
             window.racksData.push(newRack);
             
-            alert(`New rack added successfully!\n\nRack ID: ${newRack.id}\nType: ${newRack.type}\nCapacity: ${newRack.capacity || 'N/A'}\nGated: ${newRack.gated}\nLocation: ${newRack.point}\n\nSwitching to map view. Don't forget to download the updated CSV!`);
+            alert(`✓ Rack ${newRack.id} added successfully!\n\nRemember to download the updated CSV when you're done adding all entries.`);
             
-            // Reset form and switch back to map
-            document.getElementById('addRackForm').reset();
-            switchTab('map');
+            // Reset form
+            clearAddForm();
             
-            // Refresh the map
-            location.reload();
+            // Optionally switch to map view to see the new rack
+            // switchTab('map');
+            // location.reload();
         });
     </script>
 </body>
