@@ -1045,19 +1045,32 @@
 
                 document.getElementById('visibleCount').textContent = filteredRacks.length;
 
+                console.log('Creating markers for', filteredRacks.length, 'racks');
+
                 filteredRacks.forEach(rack => {
                     // Validate point exists and is properly formatted
-                    if (!rack.point || typeof rack.point !== 'string') return;
+                    if (!rack.point) {
+                        console.log('Rack', rack.id, 'has no point');
+                        return;
+                    }
                     
-                    const coords = rack.point.split(',');
-                    if (coords.length !== 2) return;
+                    if (typeof rack.point !== 'string') {
+                        console.log('Rack', rack.id, 'point is not a string:', typeof rack.point);
+                        return;
+                    }
                     
-                    const lat = parseFloat(coords[0]);
-                    const lng = parseFloat(coords[1]);
+                    const coords = rack.point.trim().split(',');
+                    if (coords.length !== 2) {
+                        console.log('Rack', rack.id, 'coords length wrong:', coords.length, rack.point);
+                        return;
+                    }
+                    
+                    const lat = parseFloat(coords[0].trim());
+                    const lng = parseFloat(coords[1].trim());
                     
                     // Validate coordinates are valid numbers
                     if (isNaN(lat) || isNaN(lng)) {
-                        console.warn(`Invalid coordinates for rack ${rack.id}: ${rack.point}`);
+                        console.warn(`Invalid coordinates for rack ${rack.id}: ${rack.point} -> lat:${lat}, lng:${lng}`);
                         return;
                     }
                     
@@ -1395,6 +1408,12 @@
         // Populate edit table
         function populateEditTable() {
             const tbody = document.getElementById('editTableBody');
+            if (!tbody) {
+                console.error('editTableBody not found!');
+                return;
+            }
+            
+            console.log('Populating edit table with', window.racksData.length, 'racks');
             tbody.innerHTML = '';
             
             window.racksData.forEach((rack, index) => {
