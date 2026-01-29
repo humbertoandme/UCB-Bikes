@@ -1119,12 +1119,12 @@
                 createMarkers();
             };
 
-            // Initial render
-            createMarkers();
-
-            // Make map globally accessible for adding entries
+            // Make map and data globally accessible BEFORE initial render
             window.mapInstance = map;
             window.racksData = racks;
+
+            // Initial render
+            createMarkers();
 
             // Handle window resize to keep map responsive
             window.addEventListener('resize', function() {
