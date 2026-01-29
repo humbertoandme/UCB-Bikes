@@ -1046,7 +1046,21 @@
                 document.getElementById('visibleCount').textContent = filteredRacks.length;
 
                 filteredRacks.forEach(rack => {
-                    const [lat, lng] = rack.point.split(',').map(Number);
+                    // Validate point exists and is properly formatted
+                    if (!rack.point || typeof rack.point !== 'string') return;
+                    
+                    const coords = rack.point.split(',');
+                    if (coords.length !== 2) return;
+                    
+                    const lat = parseFloat(coords[0]);
+                    const lng = parseFloat(coords[1]);
+                    
+                    // Validate coordinates are valid numbers
+                    if (isNaN(lat) || isNaN(lng)) {
+                        console.warn(`Invalid coordinates for rack ${rack.id}: ${rack.point}`);
+                        return;
+                    }
+                    
                     const markerClass = getMarkerClass(rack.type);
                     const icon = getMarkerIcon(rack.type);
 
@@ -1166,13 +1180,19 @@
                         const fields = parseCSVLine(line);
                         
                         if (fields.length >= 5) {
-                            newRacks.push({
+                            const rack = {
                                 id: fields[0] || '',
                                 type: fields[1] || '',
                                 gated: fields[2] || '',
                                 capacity: fields[3] ? parseInt(fields[3]) : null,
                                 point: fields[4] || ''
-                            });
+                            };
+                            newRacks.push(rack);
+                            
+                            // Debug first few racks
+                            if (i <= 3) {
+                                console.log(`Rack ${i}:`, rack);
+                            }
                         }
                     }
 
