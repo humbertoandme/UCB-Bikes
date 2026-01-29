@@ -667,9 +667,9 @@
 
     <div class="tab-container">
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('map')">🗺️ View Map</button>
-            <button class="tab" onclick="switchTab('add')">➕ Add New Entry</button>
-            <button class="tab" onclick="switchTab('edit')">✏️ Edit Entries</button>
+            <button class="tab active" onclick="switchTab('map')">View Map</button>
+            <button class="tab" onclick="switchTab('add')">Add New Entry</button>
+            <button class="tab" onclick="switchTab('edit')">Edit Entries</button>
         </div>
     </div>
 
@@ -758,7 +758,7 @@
             </div>
 
             <div class="form-group">
-                <button type="button" class="btn-submit" onclick="downloadCurrentCSV()">📥 Download Current Data as CSV</button>
+                <button type="button" class="btn-submit" onclick="downloadCurrentCSV()">Download Current Data as CSV</button>
             </div>
 
             <hr style="margin: 40px 0; border: none; border-top: 2px solid #eee;">
@@ -847,7 +847,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-                <button type="button" class="btn-submit" onclick="downloadCurrentCSV()">📥 Download Updated CSV</button>
+                <button type="button" class="btn-submit" onclick="downloadCurrentCSV()">Download Updated CSV</button>
             </div>
         </div>
     </div>
@@ -1144,74 +1144,117 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            console.log('Loading CSV file:', file.name);
+
             const reader = new FileReader();
             reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split('\n');
-                const newRacks = [];
-
-                // Skip header row
-                for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-
-                    // Simple CSV parsing - split by comma but handle quoted fields
-                    let fields = [];
-                    let current = '';
-                    let inQuotes = false;
+                try {
+                    const text = e.target.result;
+                    console.log('CSV text loaded, length:', text.length);
                     
-                    for (let j = 0; j < lines[i].length; j++) {
-                        const char = lines[i][j];
-                        if (char === '"') {
-                            inQuotes = !inQuotes;
-                        } else if (char === ',' && !inQuotes) {
-                            fields.push(current.trim());
-                            current = '';
-                        } else {
-                            current += char;
+                    const lines = text.split(/\r?\n/); // Handle both \n and \r\n
+                    console.log('Total lines:', lines.length);
+                    
+                    const newRacks = [];
+
+                    // Skip header row (index 0), start from 1
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue; // Skip empty lines
+
+                        // Parse CSV with proper quote handling
+                        const fields = parseCSVLine(line);
+                        
+                        if (fields.length >= 5) {
+                            newRacks.push({
+                                id: fields[0] || '',
+                                type: fields[1] || '',
+                                gated: fields[2] || '',
+                                capacity: fields[3] ? parseInt(fields[3]) : null,
+                                point: fields[4] || ''
+                            });
                         }
                     }
-                    fields.push(current.trim()); // Push last field
 
-                    if (fields.length >= 5) {
-                        newRacks.push({
-                            id: fields[0],
-                            type: fields[1],
-                            gated: fields[2],
-                            capacity: fields[3] ? parseInt(fields[3]) : null,
-                            point: fields[4]
-                        });
-                    }
-                }
+                    console.log('Parsed racks:', newRacks.length);
 
-                if (confirm(`Load ${newRacks.length} racks from CSV? This will replace all current data.`)) {
-                    window.racksData = newRacks;
-                    alert('✓ CSV loaded successfully! Refreshing map...');
-                    
-                    // Clear existing markers
-                    if (window.markers) {
-                        window.markers.forEach(m => window.mapInstance.removeLayer(m));
+                    if (newRacks.length === 0) {
+                        alert('Error: No valid data found in CSV file. Please check the file format.');
+                        return;
                     }
-                    
-                    // Reinitialize map with new data
-                    window.createMarkers();
-                    
-                    // Update stats
-                    const totalCapacity = newRacks.reduce((sum, r) => sum + (r.capacity || 0), 0);
-                    document.getElementById('totalRacks').textContent = newRacks.length;
-                    document.getElementById('totalCapacity').textContent = totalCapacity.toLocaleString();
-                    
-                    // Rebuild type filters
-                    rebuildTypeFilters();
-                    
-                    // Switch to map view
-                    switchTab('map');
+
+                    if (confirm(`Load ${newRacks.length} racks from CSV? This will replace all current data.`)) {
+                        // Update the global data
+                        window.racksData = newRacks;
+                        console.log('Updated racksData:', window.racksData.length);
+                        
+                        // Update stats
+                        const totalCapacity = newRacks.reduce((sum, r) => sum + (r.capacity || 0), 0);
+                        document.getElementById('totalRacks').textContent = newRacks.length;
+                        document.getElementById('totalCapacity').textContent = totalCapacity.toLocaleString();
+                        
+                        // Rebuild type filters
+                        rebuildTypeFilters();
+                        
+                        // Recreate markers on map
+                        if (window.createMarkers) {
+                            window.createMarkers();
+                        }
+                        
+                        alert('CSV loaded successfully! Data updated.');
+                        
+                        // Switch to map view
+                        switchTab('map');
+                    }
+                } catch (error) {
+                    console.error('Error loading CSV:', error);
+                    alert('Error loading CSV: ' + error.message);
                 }
             };
+            
+            reader.onerror = function() {
+                alert('Error reading file. Please try again.');
+            };
+            
             reader.readAsText(file);
             
-            // Reset file input
+            // Reset file input so the same file can be selected again
             event.target.value = '';
         };
+
+        // Parse a single CSV line with proper quote handling
+        function parseCSVLine(line) {
+            const fields = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+                
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // Escaped quote
+                        current += '"';
+                        i++; // Skip next quote
+                    } else {
+                        // Toggle quote mode
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    // Field separator
+                    fields.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            // Add last field
+            fields.push(current.trim());
+            
+            return fields;
+        }
 
         // Rebuild type filters after loading new CSV
         function rebuildTypeFilters() {
@@ -1443,7 +1486,7 @@
             // Add to racks array
             window.racksData.push(newRack);
             
-            alert(`✓ Rack ${newRack.id} added successfully!\n\nRemember to download the updated CSV when you're done adding all entries.`);
+            alert('Rack ' + newRack.id + ' added successfully!\n\nRemember to download the updated CSV when you\'re done adding all entries.');
             
             // Reset form
             clearAddForm();
